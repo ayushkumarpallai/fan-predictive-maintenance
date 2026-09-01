@@ -1,0 +1,95 @@
+# Fan Predictive Maintenance Configuration
+
+data:
+  csv_path: "data/predictive_maintenance_dataset.csv"
+  test_split: 0.2
+  random_state: 42
+  baseline_health_condition: "Healthy"  # Only samples with this condition are used for baseline
+  baseline_health_status: "Normal"      # Only samples with this status are used for baseline
+
+anomaly_detection:
+  model_type: "isolation_forest"
+  n_estimators: 100
+  max_samples: "auto"
+  max_features: 1.0
+  bootstrap: false
+  contamination: 0.15  # Expected proportion of anomalies in data
+  random_state: 42
+  verbose: 0
+
+feature_engineering:
+  rolling_window: 3  # Number of samples for rolling statistics
+  features_to_use:
+    - "TotalVibration"
+    - "Temp"
+    - "Voltage"
+    - "Current"
+  create_rolling_mean: true
+  create_rolling_std: true
+  create_rate_of_change: true
+  create_power_feature: true  # Voltage * Current
+  drop_original_features: false
+
+rul_estimation:
+  model_type: "hybrid"  # Options: linear, gradient_boosting, hybrid
+  lookback_window: 3    # Rolling window for temporal features
+  test_split: 0.2
+  random_state: 42
+  use_degradation_labels: true
+  
+  # Hybrid model coefficients (learned during training)
+  # a*vibration_delta + b*temp_delta + c*current_delta
+  learning_rate: 0.01
+  max_iterations: 1000
+
+alert_thresholds:
+  normal_max_score: 0.5        # Anomaly score threshold for Normal
+  alert_min_score: 0.6         # Anomaly score threshold for Alert
+  critical_min_score: 0.8      # Anomaly score threshold for Critical
+  rul_warning_days: 7.0        # RUL threshold for scheduling maintenance
+  rul_critical_days: 3.0       # RUL threshold for emergency
+
+anomalies:
+  high_vibration:
+    condition: "High_Vibration"
+    action: "Inspect bearing, shaft alignment and mounting"
+    urgency: "24 hours"
+  
+  overheating:
+    condition: "Overheating"
+    action: "Check cooling, ventilation, friction and motor temperature"
+    urgency: "12 hours"
+  
+  overcurrent:
+    condition: "Overcurrent"
+    action: "Check mechanical load, motor condition and electrical connections"
+    urgency: "6 hours"
+  
+  voltage_anomaly:
+    condition: "Voltage_Anomaly"
+    action: "Inspect supply voltage, wiring and voltage regulation"
+    urgency: "24 hours"
+  
+  multiple_anomalies:
+    condition: "Multiple_Anomalies"
+    action: "Stop/inspect machine; check vibration, temperature, electrical load and supply"
+    urgency: "Immediate"
+
+edge_inference:
+  model_type: "isolation_forest"
+  memory_optimized: true
+  quantize_features: false
+  max_model_size_mb: 5
+  use_onnx: false  # Set to true for ONNX Runtime on embedded devices
+  sampling_interval_seconds: 15
+  buffer_size: 10  # Number of samples to buffer before inference
+
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_file: "logs/predictive_maintenance.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+shap:
+  explainer_type: "tree"  # tree for Isolation Forest
+  max_samples: 100  # Number of samples for SHAP calculation
+  show_feature_importance: true
