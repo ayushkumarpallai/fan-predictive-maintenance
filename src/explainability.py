@@ -46,7 +46,18 @@ class SHAPExplainer:
         
         # Get SHAP values
         shap_values = self.explainer.shap_values(sample)
+        if isinstance(shap_values, list):
+            shap_values = shap_values[0]
+        if hasattr(shap_values, 'values'):
+            shap_values = shap_values.values
+        if shap_values.ndim > 2:
+            shap_values = shap_values.squeeze(0)
+
         base_value = self.explainer.expected_value
+        if isinstance(base_value, (list, np.ndarray)):
+            base_val_scalar = float(np.ravel(base_value)[0])
+        else:
+            base_val_scalar = float(base_value)
         
         # Get prediction
         prediction = self.model.predict(sample)[0]  # 1 = normal, -1 = anomaly
@@ -55,11 +66,11 @@ class SHAPExplainer:
         # Create feature importance ranking
         feature_importance = []
         for i, feature_name in enumerate(self.feature_names):
-            importance = abs(shap_values[0][i])
-            contribution = shap_values[0][i]
+            val_contrib = float(shap_values[0, i]) if shap_values.ndim == 2 else float(shap_values[i])
+            importance = abs(val_contrib)
             feature_importance.append({
                 'feature': feature_name,
-                'shap_value': float(contribution),
+                'shap_value': float(val_contrib),
                 'abs_shap_value': float(importance),
                 'value': float(sample[0][i]),
             })
@@ -70,7 +81,7 @@ class SHAPExplainer:
         explanation = {
             'prediction': 'Anomaly' if prediction == -1 else 'Normal',
             'anomaly_score': float(anomaly_score),
-            'base_value': float(base_value),
+            'base_value': base_val_scalar,
             'top_features': feature_importance[:5],  # Top 5 contributors
             'all_features': feature_importance,
         }
@@ -110,9 +121,15 @@ class SHAPExplainer:
             Dictionary of feature importance scores
         """
         shap_values = self.explainer.shap_values(X)
+        if isinstance(shap_values, list):
+            shap_values = shap_values[0]
+        if hasattr(shap_values, 'values'):
+            shap_values = shap_values.values
         
         # Mean absolute SHAP values
         importance = np.abs(shap_values).mean(axis=0)
+        if importance.ndim > 1:
+            importance = importance.flatten()
         
         importance_dict = {}
         for i, name in enumerate(self.feature_names):
@@ -133,10 +150,10 @@ def create_feature_summary_text(explanation: Dict) -> str:
     lines = []
     lines.append(f"Status: {explanation['prediction']}")
     lines.append(f"Anomaly Score: {explanation['anomaly_score']:.3f}")
-    lines.append(f"\nTop Contributing Factors:")
+    lines.append("\nTop Contributing Factors:")
     
     for i, feature in enumerate(explanation['top_features'], 1):
-        direction = "↑" if feature['shap_value'] > 0 else "↓"
+        direction = "(+)" if feature['shap_value'] > 0 else "(-)"
         lines.append(f"  {i}. {feature['feature']}: {direction} {abs(feature['shap_value']):.4f} (value: {feature['value']:.3f})")
     
     return "\n".join(lines)

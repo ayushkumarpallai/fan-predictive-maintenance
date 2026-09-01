@@ -92,12 +92,16 @@ class AlertGenerator:
         Returns:
             Recommendation text
         """
-        recommendations = self.config['anomalies']
+        recommendations = self.config.get('anomalies', {})
         
-        if condition in recommendations:
-            return recommendations[condition]['action']
-        else:
-            return "No action required"
+        for k, v in recommendations.items():
+            if isinstance(v, dict):
+                if v.get('condition') == condition or k == condition.lower() or k == condition.lower().replace('-', '_'):
+                    return v.get('action', 'Inspect machine')
+            elif k == condition:
+                return str(v)
+                
+        return "No action required"
     
     def generate_alert(self, 
                       features: Dict[str, float],

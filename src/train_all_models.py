@@ -10,6 +10,13 @@ Runs all steps:
 
 import logging
 import sys
+import os
+import joblib
+
+# Ensure src is in sys.path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from data_preprocessing import DataPreprocessor
 from feature_engineering import FeatureEngineer
 from anomaly_detection import AnomalyDetector
@@ -57,6 +64,12 @@ def train_all_models():
     X_all = data_engineered[feature_names].values
     y_all = preprocessor.get_labels()
     logger.info(f"  ✓ Feature matrix shape: {X_all.shape}")
+    
+    # Save processed data and feature scaler
+    preprocessor.save_processed_data('data/processed_data.pkl')
+    engineer.fit_scaler(X_baseline)
+    joblib.dump(engineer.scaler, 'models/feature_scaler.pkl')
+    logger.info("  ✓ Saved models/feature_scaler.pkl and data/processed_data.pkl")
     
     # Step 3: Train anomaly detector
     logger.info("\n[Step 3/5] Training anomaly detector...")
@@ -122,6 +135,8 @@ def train_all_models():
     logger.info("\nModels saved:")
     logger.info("  - models/isolation_forest_model.pkl")
     logger.info("  - models/rul_estimator_model.pkl")
+    logger.info("  - models/feature_scaler.pkl")
+    logger.info("  - data/processed_data.pkl")
     logger.info("\nNext steps:")
     logger.info("  1. Deploy to ESP32 using edge_inference.py")
     logger.info("  2. Run inference on live sensor streams")
